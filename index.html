@@ -136,7 +136,7 @@ function card(q, i, total, opts) {
       if (!answered) el.onclick = () => {
         done[q.id] = { picked: oi, ok: isAns };
         localStorage.setItem('jkbd_done', JSON.stringify(done));
-        renderBrowse(lastIdx);
+        renderBrowse(lastIdx, true);
       };
     }
     optsEl.appendChild(el);
@@ -155,7 +155,7 @@ function card(q, i, total, opts) {
     if (answered && !ro) {
       const redo = document.createElement('button'); redo.textContent = '🔄 重做此题';
       redo.style.cssText = 'margin-top:8px;background:#20242c;color:var(--fg);border:1px solid #333a45;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer';
-      redo.onclick = () => { delete done[q.id]; localStorage.setItem('jkbd_done', JSON.stringify(done)); renderBrowse(lastIdx); };
+      redo.onclick = () => { delete done[q.id]; localStorage.setItem('jkbd_done', JSON.stringify(done)); renderBrowse(lastIdx, true); };
       d.appendChild(redo);
     }
   } else {
@@ -176,7 +176,8 @@ function card(q, i, total, opts) {
   return d;
 }
 
-function renderBrowse(startIdx) {
+function renderBrowse(startIdx, keepScroll) {
+  const sy = window.scrollY || 0;   // 记住当前滚动位置（筛选/答题/自测切换时保持不变）
   const arr = filtered();
   metaEl.textContent = `共 ${Q.length} 题 · VIP 巧记 ${Q.filter(x=>x.vip).length} · 口诀 ${Q.filter(x=>x.koujue).length} · 当前列表 ${arr.length} 题 · 已做 ${Object.keys(done).length}`;
   barEl.style.display = 'flex';
@@ -193,7 +194,7 @@ function renderBrowse(startIdx) {
   next.onclick = () => renderBrowse(idx + 1);
   nav.append(prev, next);
   listEl.appendChild(nav);
-  window.scrollTo(0, 0);
+  window.scrollTo(0, keepScroll ? sy : 0);   // 切题回顶；筛选/答题/自测保持原位
 }
 
 /* ============ 考试模式 ============ */
@@ -382,10 +383,10 @@ function renderExamSetup() {
 function refilter() {
   mode = 'browse';
   const arr = filtered();
-  if (!arr.length) { renderBrowse(0); return; }
-  if (curQid == null) { renderBrowse(lastIdx); return; }
+  if (!arr.length) { renderBrowse(0, true); return; }
+  if (curQid == null) { renderBrowse(lastIdx, true); return; }
   const at = arr.findIndex(q => q.id === curQid);
-  if (at >= 0) { renderBrowse(at); return; }        // 当前题仍在新列表 → 原位
+  if (at >= 0) { renderBrowse(at, true); return; }  // 当前题仍在新列表 → 原位
   // 当前题不在：找原列表中它的位置，映射到新列表里往后最近的一题
   const oldIdx = Q.findIndex(q => q.id === curQid);
   let next = null;
@@ -393,14 +394,14 @@ function refilter() {
     const hit = arr.findIndex(q => q.id === Q[i].id);
     if (hit >= 0) { next = hit; break; }
   }
-  renderBrowse(next == null ? Math.min(lastIdx, arr.length - 1) : next);
+  renderBrowse(next == null ? Math.min(lastIdx, arr.length - 1) : next, true);
 }
 
 /* ============ 路由 ============ */
 kw.oninput = () => refilter();
 chapSel.onchange = () => refilter();
 onlyVip.onchange = () => refilter();
-testMode.onchange = () => { if (mode === 'browse') renderBrowse(lastIdx); };
+testMode.onchange = () => { if (mode === 'browse') renderBrowse(lastIdx, true); };
 document.getElementById('reset').onclick = () => { if (confirm('清空做题进度？')) { done = {}; localStorage.removeItem('jkbd_done'); renderBrowse(0); } };
 document.getElementById('examBtn').onclick = () => { mode = 'exam-setup'; renderExamSetup(); };
 if (tryResumeExam()) { /* 恢复进行中的考试（刷新/关闭后重开） */ }
